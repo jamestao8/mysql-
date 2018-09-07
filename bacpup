@@ -1,0 +1,37 @@
+1，线上用的时候请注意将自己的用户名和密码都设置对，这里password密码我暂时用xxxxxx代替。当然，你也可以建立专用于备份用的数据库用户并设置权限。
+2，根据情况设置一个任务计划。
+1.下载xtrabackup（下载二进制版本免安装）
+# wget http://www.percona.com/redir/downloads/XtraBackup/XtraBackup-1.5/Linux/binary/x86_64/xtrabackup-1.5.tar.gz
+# tar zxvfxtrabackup-1.5.tar.gz -C /usr/local/
+mysql全量备份脚本如下：
+#!/bin/bash
+#author
+logfile="/home/mysqlbak/mysql_full_bak_time.log"
+backuplogfile="/home/mysqlbak/mysqlbackup.log"
+mysql_bakdir="/home/mysqlbak/"
+user=root
+password=xxxxxx
+ 
+[ ! -d $mysql_bakdir ] && mkdir -p $mysql_bakdir
+[ ! -f $logfile ] && touch $logfile
+ 
+innobackupex --defaults-file=/etc/my.cnf --user=${user} --password=${password} --compress –-parallel=4 –-throttle=400 --stream=tar ${mysql_bakdir} 2>&1 >> $backuplogfile
+reset=$?
+finishtime=`date +%Y%m%d_%H%M%S`
+[ ${reset} -eq 0 ] && echo "Mysql fullbakup finished, time: $finishtime">> $logfile || echo "Mysql fullbakup failed,please check time:$finishtime" >> $logfile
+mysql增量备份脚本如下：
+#!/bin/bash
+#author
+time=`date -d '-3 day' +%Y-%m-%d`
+logfile="/home/mysqlbak/mysql_full_bak_time.log"
+mysql_bakdir="/home/mysqlbak/"
+user=root
+password=xxxxxx
+lastfullbakdir=`ls /home/mysqlbak/ |grep ${time}`
+ 
+[ ! -d $mysql_bakdir ] && mkdir -p $mysql_bakdir
+[ ! -d $logfile ] && touch $logfile
+ 
+innobackupex --defaults-file=/etc/my.cnf --user=${user} --password=${password} --incremental-basedir=${mysql_bakdir}/${lastfullbakdir} --incremental ${mysql_bakdir}
+finishtime=`date +%Y%m%d_%H%M%S`
+[ $? -eq 0 ] && echo "Mysql fullbakup finished, time: $finishtime">> $logfile || echo "Mysql fullbakup failed,please check time:$finishtime">> $logfile
